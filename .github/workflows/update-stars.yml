@@ -1,0 +1,94 @@
+name: ⭐ Auto Update Stars
+
+on:
+  schedule:
+    # 每周一 09:00 UTC ≈ 17:00 北京时间
+    - cron: '0 9 * * 1'
+  workflow_dispatch:     # 手动触发
+    inputs:
+      dry_run:
+        description: 'Dry run (no file changes)'
+        required: false
+        default: 'false'
+
+jobs:
+  update-stars:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Authenticate with GitHub
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Run update script
+        id: update
+        run: |
+          python scripts/update-readme-stars.py
+
+      - name: Check for changes
+        id: git_status
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "没有检测到文件变化，跳过提交。"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "检测到文件变化。"
+          fi
+
+      - name: Create commit and PR
+        if: steps.git_status.outputs.changed == 'true'
+        run: |
+          BRANCH="chore/update-stars-$(date +%Y%m%d-%H%M%S)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "chore: auto-update stars $(date +%Y-%m-%d)"
+          git push -u origin "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Create or update PR
+        if: steps.git_status.outputs.changed == 'true'
+        run: |
+          BRANCH=$(git branch --show-current)
+          echo "当前分支: $BRANCH"
+          PR_EXISTS=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
+          if [ "$PR_EXISTS" -gt 0 ]; then
+            echo "PR 已存在，跳过创建。"
+          else
+            gh pr create \
+              --title "⭐ Auto-update stars $(date +%Y-%m-%d)" \
+              --body "🤖 GitHub Actions 自动更新所有项目的最新 Stars 数据。" \
+              --base main
+            echo "✅ PR 创建成功！"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## ⭐ Stars 更新报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 状态 | 说明 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.git_status.outputs.changed }}" == "true" ]; then
+            echo "| ✅ 有更新 | 已提交并创建 PR |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ➖ 无变化 | Stars 数据已是最新 |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 由 [awesome-distill-persona](https://github.com/cyzlmh/awesome-distill-persona) 自动维护" >> $GITHUB_STEP_SUMMARY
