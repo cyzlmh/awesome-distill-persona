@@ -14,7 +14,7 @@
   [![Forks](https://img.shields.io/github/forks/cyzlmh/awesome-distill-persona?style=for-the-badge&color=4ECDC4)](https://github.com/cyzlmh/awesome-distill-persona/network/members)
   [![License](https://img.shields.io/badge/License-MIT-FFE66D?style=for-the-badge)](./LICENSE)
   <!-- TOC -->
-  > 🔗 Last updated: 2026-04-04 | Data: GitHub API
+  > 🔗 Last updated: 2026-10-12 | Data: GitHub API
 
   ---
 
